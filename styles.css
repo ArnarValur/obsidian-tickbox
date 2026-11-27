@@ -1,0 +1,4 @@
+/* Tickbox: a hand cursor while the mouse is over a box in a table cell. */
+.tickbox-pointer {
+	cursor: pointer;
+}
