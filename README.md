@@ -1,12 +1,14 @@
 # Tickbox
 
-Click or tap ☐ / ☑ boxes in Markdown table cells to tick them. Works on desktop and mobile.
+Click or tap ☐ / ☑ boxes in Markdown table cells to tick them. Strike boxes (⊟ / ☒) cross out a task. Works on
+desktop and mobile.
 
 | Before | After one click |
 | ------ | --------------- |
 | ![A habit table with four empty boxes in the Gym row; a red ring marks the third box](docs/images/before.png) | ![The same table with the third box in the Gym row ticked](docs/images/after.png) |
 
-The boxes are plain characters (☐ U+2610 and ☑ U+2611), so a note reads fine anywhere, even without the plugin.
+The boxes are plain characters (☐ U+2610, ☑ U+2611, ⊟ U+229F, ☒ U+2612), so a note reads fine anywhere, even
+without the plugin.
 Tickbox only adds the interaction.
 
 ## How to use it
@@ -14,6 +16,9 @@ Tickbox only adds the interaction.
 - **Click or tap** a ☐ or ☑ in a table cell to flip it. Works in Live Preview and Reading view.
 - **Ctrl+Z** (Cmd+Z on macOS) takes the last flip back.
 - **Type `[]`** inside a table cell and it becomes ☐.
+- **Type `[-]`** inside a table cell and it becomes a strike box ⊟. Tick it (☒) to strike through:
+  - the text in **that cell**, when the cell has text beside the box;
+  - the **whole row**, when the box is alone in its cell.
 - **Toggle box in current cell** flips the box nearest the cursor while you edit a cell. Default hotkey:
   Ctrl/Cmd+Shift+Enter. You can change it in **Settings → Hotkeys**.
 
@@ -22,6 +27,15 @@ Tickbox only adds the interaction.
 | ----- | ----------- |
 | Gym   | ☑ ☐ ☐       |
 ```
+
+```markdown
+| Task       | Notes            |
+| ---------- | ---------------- |
+| ☒ Buy milk | from the shop    |   ← only "Buy milk" is struck
+| ☒          | Call the dentist |   ← the whole row is struck
+```
+
+The strike is only drawn on screen; the note keeps plain text (no `~~` added).
 
 A cell can hold several boxes, mixed with text; each box toggles on its own. Tables inside callouts work too.
 

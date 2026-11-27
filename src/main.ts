@@ -3,6 +3,7 @@ import {EditorView} from '@codemirror/view';
 import {type Editor, MarkdownView, Notice, Platform, Plugin} from 'obsidian';
 import {ClickToggler} from './click';
 import {cellRangeAt, editorExtensions, isCellEditor, toggleAt, undoTracker} from './editor';
+import {livePreviewStrikes, markTables} from './strike';
 import {boxesIn, nearestBox} from './table';
 
 function viewOf(editor: Editor): EditorView | null {
@@ -28,8 +29,11 @@ export default class TickboxPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		this.clicks = new ClickToggler(this.app);
-		this.registerMarkdownPostProcessor(this.clicks.postProcess);
-		this.registerEditorExtension(editorExtensions());
+		this.registerMarkdownPostProcessor((el, ctx) => {
+			this.clicks.postProcess(el, ctx);
+			markTables(el);
+		});
+		this.registerEditorExtension([editorExtensions(), livePreviewStrikes]);
 
 		this.listenOn(window);
 		this.registerEvent(this.app.workspace.on('window-open', (_w, win) => this.listenOn(win)));
