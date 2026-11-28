@@ -2,3 +2,9 @@
 .tickbox-pointer {
 	cursor: pointer;
 }
+
+/* Strike box ☒: the cell's text (or the whole row, when the box stands alone in its cell) is struck through. */
+.tickbox-struck {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}

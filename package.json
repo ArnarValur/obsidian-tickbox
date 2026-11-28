@@ -1,6 +1,6 @@
 {
 	"name": "tickbox",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Clickable checkboxes in Markdown table cells for Obsidian.",
 	"main": "main.js",
 	"type": "module",

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {bracketsStandAlone, cellAt, isDelimiterRow, linesOf, nearestBox, resolveBox, splitCells, tableAt, tablesIn} from '../../src/table';
+import {bracketsStandAlone, cellAt, strikeOf, toggled, isDelimiterRow, linesOf, nearestBox, resolveBox, splitCells, tableAt, tablesIn} from '../../src/table';
 
 const cells = (line: string): string[] => (splitCells(line) ?? []).map((c) => line.slice(c.from, c.to));
 
@@ -69,5 +69,35 @@ describe('quick insert', () => {
 		expect(bracketsStandAlone(' \\[]', 4, 0)).toBe(false);
 		expect(bracketsStandAlone(' `[]', 4, 0)).toBe(false);
 		expect(bracketsStandAlone(' `a` []', 7, 0)).toBe(true);
+	});
+});
+
+describe('strike boxes', () => {
+	it('toggles each kind of box within its own pair', () => {
+		expect(toggled('☐')).toBe('☑');
+		expect(toggled('☑')).toBe('☐');
+		expect(toggled('⊟')).toBe('☒');
+		expect(toggled('☒')).toBe('⊟');
+	});
+	it('strikes the cell when text sits beside a ticked strike box, the row when the box stands alone', () => {
+		expect(strikeOf(' ☒ Buy milk ')).toBe('cell');
+		expect(strikeOf('Buy milk ☒')).toBe('cell');
+		expect(strikeOf(' ☒ ')).toBe('row');
+		expect(strikeOf('☒ ☐ ☑')).toBe('row');
+		expect(strikeOf(' ⊟ Buy milk ')).toBe('none');
+		expect(strikeOf(' ⊟ ')).toBe('none');
+		expect(strikeOf(' ☑ done ')).toBe('none');
+	});
+	it('resolves a strike box like any other box', () => {
+		const doc = linesOf(['| A | B |', '| - | - |', '| ⊟ milk ☐ | x |'].join('\n'));
+		expect(resolveBox(doc, {from: 0, to: 0, tableIndex: 0, tableCount: 1, row: 1, col: 0, box: 0, states: '⊟☐'})).toEqual({line: 2, ch: 2});
+		expect(resolveBox(doc, {from: 0, to: 0, tableIndex: 0, tableCount: 1, row: 1, col: 0, box: 0, states: '☒☐'})).toBeNull();
+	});
+	it('converts a lone [-] only', () => {
+		expect(bracketsStandAlone(' [-]', 4, 0, '[-]')).toBe(true);
+		expect(bracketsStandAlone('[-]', 3, 0, '[-]')).toBe(true);
+		expect(bracketsStandAlone(' [[-]', 5, 0, '[-]')).toBe(false);
+		expect(bracketsStandAlone(' `[-]', 5, 0, '[-]')).toBe(false);
+		expect(bracketsStandAlone(' [x]', 4, 0, '[-]')).toBe(false);
 	});
 });

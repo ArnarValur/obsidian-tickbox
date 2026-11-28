@@ -19,7 +19,17 @@ flowchart LR
 | `src/click.ts` | Capture-phase pointer/mouse/touch listeners on every window; hit test; mapping per view; applying. |
 | `src/editor.ts` | CodeMirror side: `toggleAt` (isolated history step), the undo tracker, the `[]` → ☐ view plugin. |
 | `src/file-edit.ts` | Reading-view writes via `vault.process`, with a per-note undo/redo stack. |
+| `src/strike.ts` | Strike boxes: adds `tickbox-struck` to the struck cells (or every cell of the row) of rendered tables. Reading view via the post processor; Live Preview via a `MutationObserver` on the editor (tables are widgets that Obsidian re-renders on its own). The rule itself is `strikeOf` in `src/table.ts`. |
 | `src/main.ts` | Lifecycle: post processor, editor extensions, listeners (incl. pop-out windows), command, Ctrl+Z without editor focus. |
+
+## Box kinds
+
+| Kind | Open | Ticked | Typed as | Effect when ticked |
+|---|---|---|---|---|
+| Check | ☐ U+2610 | ☑ U+2611 | `[]` | none |
+| Strike | ⊟ U+229F | ☒ U+2612 | `[-]` | strikes its cell's text; the whole row when the box is alone in its cell |
+
+A box only ever flips within its own pair. The strike is CSS only; the source is never rewritten with `~~`.
 
 ## Why it works in Live Preview
 

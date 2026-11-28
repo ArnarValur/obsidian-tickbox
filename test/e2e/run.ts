@@ -39,6 +39,7 @@ for (const f of ['main.js', 'manifest.json', 'styles.css']) copyFileSync(join(RE
 copyFileSync(join(REPO, 'test', 'fixtures', NOTE), join(vault, NOTE));
 writeFileSync(join(vault, 'Tickbox.md'), '# Tickbox\n');
 writeFileSync(join(vault, 'Hidden box.md'), '| A | B |\n|---|---|\n| x | %%☐%% ☐ |\n');
+writeFileSync(join(vault, 'Strike.md'), '| Task | Notes |\n|---|---|\n| ⊟ milk | shop |\n| ⊟ | dentist |\n| ☒ done | kept |\n');
 writeFileSync(join(vault, 'Typing.md'), 'plain line\n\n| Name | Notes |\n|---|---|\n| one | write here |\n| two | another |\n');
 const original = readFileSync(join(vault, NOTE), 'utf8');
 
@@ -213,6 +214,83 @@ try {
 		await sleep(300);
 		const t4 = await lineOf(5);
 		check('Source: arrowing past an auto-paired ] keeps []', t4.includes('another []') && !t4.includes('☐'), t4);
+	}
+
+	// ----- Strike boxes: ⊟ → ☒ strikes the cell's text, or the whole row when the box is alone -----
+	{
+		const STRIKE = join(vault, 'Strike.md');
+		/** Per visible row of the first visible table: is each cell's visible part struck? */
+		const struck = (): Promise<boolean[][]> => app.eval(() => {
+			const root = document.querySelector('.workspace-leaf.mod-active .view-content')!;
+			const table = Array.from(root.querySelectorAll('table')).find((t) => t.getClientRects().length > 0);
+			if (!table) return [];
+			const vis = (c: Element): Element => Array.from(c.children).find((w) => w.classList.contains('table-cell-wrapper') && w.getClientRects().length > 0) ?? c;
+			return Array.from(table.rows).map((r) => Array.from(r.cells).map((c) => vis(c).classList.contains('tickbox-struck')));
+		});
+		/** Clicks the strike box (⊟ or ☒) in the first cell of body row `row` (1-based, as rendered). */
+		const clickStrike = async (row: number): Promise<boolean> => {
+			const p = await app.eval((row) => {
+				const root = document.querySelector('.workspace-leaf.mod-active .view-content')!;
+				const table = Array.from(root.querySelectorAll('table')).find((t) => t.getClientRects().length > 0);
+				const cell = table?.rows[row]?.cells[0];
+				if (!cell) return null;
+				const scope = Array.from(cell.children).find((w) => w.classList.contains('table-cell-wrapper') && w.getClientRects().length > 0) ?? cell;
+				const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+				for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+					const i = (t as Text).data.search(/[⊟☒]/);
+					if (i < 0) continue;
+					const r = document.createRange();
+					r.setStart(t, i);
+					r.setEnd(t, i + 1);
+					const b = r.getBoundingClientRect();
+					return {x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2};
+				}
+				return null;
+			}, row);
+			if (!p) return false;
+			await app.page.mouse.click(p.x, p.y);
+			await sleep(600);
+			return true;
+		};
+		const show = (m: boolean[][]): string => JSON.stringify(m.map((r) => r.map((b) => (b ? 'S' : '-')).join('')));
+
+		await setMode(app, 'live', 'Strike.md');
+		await sleep(400);
+		check('Strike LP: ☒ beside text strikes only its own cell', show(await struck()) === '["--","--","--","S-"]', show(await struck()));
+		await clickStrike(1);
+		const t1 = await editorText(app);
+		check('Strike LP: clicking ⊟ makes ☒', t1.includes('| ☒ milk | shop |'), t1.split('\n')[2]);
+		check('Strike LP: ☒ milk strikes "milk", not "shop"', show(await struck()) === '["--","S-","--","S-"]', show(await struck()));
+		await clickStrike(2);
+		check('Strike LP: a lone ☒ strikes the whole row', show(await struck()) === '["--","S-","SS","S-"]', show(await struck()));
+		check('Strike LP: clicks did not open a cell editor', await app.eval(() => !document.querySelector('.workspace-leaf.mod-active td .cm-editor')));
+		await app.page.screenshot({path: join(shots, 'strike-live-preview.png')});
+
+		await setMode(app, 'reading', 'Strike.md');
+		await sleep(400);
+		check('Strike Reading: same strikes as Live Preview', show(await struck()) === '["--","S-","SS","S-"]', show(await struck()));
+		await clickStrike(2);
+		await sleep(400);
+		const disk = readFileSync(STRIKE, 'utf8');
+		check('Strike Reading: clicking ☒ writes ⊟ to the file', disk.includes('| ⊟ | dentist |'), disk.split('\n')[3]);
+		check('Strike Reading: unticking takes the row strike away', show(await struck()) === '["--","S-","--","S-"]', show(await struck()));
+		await app.page.screenshot({path: join(shots, 'strike-reading.png')});
+
+		// quick insert [-] in Source mode
+		await setMode(app, 'source', 'Strike.md');
+		const firstLine = await app.page.locator('.workspace-leaf.mod-active .cm-line').first().boundingBox();
+		if (firstLine) await app.page.mouse.click(firstLine.x + 5, firstLine.y + firstLine.height / 2);
+		await sleep(200);
+		const row = (await editorText(app)).split('\n')[4] ?? '';
+		await app.eval((ch) => {
+			const v = (window as unknown as W).app.workspace.getMostRecentLeaf().view;
+			v.editor.focus();
+			v.editor.setCursor({line: 4, ch});
+		}, row.indexOf('kept') + 'kept'.length);
+		await app.page.keyboard.type(' [-]');
+		await sleep(400);
+		const t2 = (await editorText(app)).split('\n')[4];
+		check('Source: typing [-] in a table cell makes ⊟', t2 === row.replace('kept', 'kept ⊟'), t2);
 	}
 
 	// ----- Reading view -----

@@ -1,9 +1,9 @@
-// CodeMirror side: toggling a box in an editor, undo bookkeeping, and the [] → ☐ quick insert.
+// CodeMirror side: toggling a box in an editor, undo bookkeeping, and the [] → ☐ / [-] → ⊟ quick insert.
 import {isolateHistory} from '@codemirror/commands';
 import {syntaxTree} from '@codemirror/language';
 import {Annotation, Transaction, type EditorState, type Extension} from '@codemirror/state';
 import {EditorView, ViewPlugin, type ViewUpdate} from '@codemirror/view';
-import {UNCHECKED, bracketsStandAlone, cellAt, isBox, isDelimiterRow, tableAt, toggled, type Lines} from './table';
+import {SHORTCUTS, bracketsStandAlone, cellAt, isBox, isDelimiterRow, tableAt, toggled, type Lines} from './table';
 
 /** Marks transactions made by Tickbox. */
 export const tickboxEdit = Annotation.define<'toggle' | 'insert'>();
@@ -85,7 +85,14 @@ function inCode(state: EditorState, pos: number): boolean {
 	}
 }
 
-/** Typing `]` right after `[` inside a table cell replaces the `[]` with ☐ (also after Obsidian's auto-pair). */
+/** The shortcut (`[]` or `[-]`) that ends at `head`, if any. */
+function shortcutBefore(state: EditorState, head: number): (typeof SHORTCUTS)[number] | null {
+	return SHORTCUTS.find((s) => head >= s.text.length && state.doc.sliceString(head - s.text.length, head) === s.text) ?? null;
+}
+
+/**
+ * Typing `]` to close `[]` or `[-]` inside a table cell replaces it with ☐ or ⊟ (also after Obsidian's auto-pair).
+ */
 class QuickInsert {
 	/** When a `]` key or text input last reached this editor (soft keyboards report the text, not the key). */
 	closeTypedAt = 0;
@@ -96,7 +103,7 @@ class QuickInsert {
 		const sel = u.state.selection.main;
 		if (!sel.empty || sel.head < 2 || u.state.selection.ranges.length > 1) return;
 		const head = sel.head;
-		if (u.state.doc.sliceString(head - 2, head) !== '[]') return;
+		if (!shortcutBefore(u.state, head)) return;
 		if (u.docChanged ? this.typedClose(u, head) : this.typedOver(u, head)) this.schedule(head, 0);
 	}
 
@@ -132,14 +139,16 @@ class QuickInsert {
 			return;
 		}
 		const {state} = view;
-		if (state.selection.main.head !== head || state.doc.sliceString(head - 2, head) !== '[]') return;
-		const cell = cellRangeAt(view, head - 2);
-		if (!cell || inCode(state, head - 1)) return;
+		const shortcut = state.selection.main.head === head ? shortcutBefore(state, head) : null;
+		if (!shortcut) return;
+		const start = head - shortcut.text.length;
+		const cell = cellRangeAt(view, start);
+		if (!cell || inCode(state, start + 1)) return;
 		const text = state.doc.sliceString(cell.from, cell.to);
-		if (!bracketsStandAlone(text, head - cell.from, 0)) return;
+		if (!bracketsStandAlone(text, head - cell.from, 0, shortcut.text)) return;
 		view.dispatch({
-			changes: {from: head - 2, to: head, insert: UNCHECKED},
-			selection: {anchor: head - 1},
+			changes: {from: start, to: head, insert: shortcut.box},
+			selection: {anchor: start + 1},
 			annotations: tickboxEdit.of('insert'),
 			userEvent: 'input.tickbox',
 		});

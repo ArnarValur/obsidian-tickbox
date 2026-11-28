@@ -2,13 +2,33 @@
 
 export const UNCHECKED = '☐';
 export const CHECKED = '☑';
+/** Strike box: ⊟ (U+229F, looks like `[-]`) open, ☒ (U+2612) ticked. A ticked one strikes its cell's text or row. */
+export const STRIKE_OPEN = '⊟';
+export const STRIKE_DONE = '☒';
+
+const PAIRS: Record<string, string> = {
+	[UNCHECKED]: CHECKED,
+	[CHECKED]: UNCHECKED,
+	[STRIKE_OPEN]: STRIKE_DONE,
+	[STRIKE_DONE]: STRIKE_OPEN,
+};
 
 export function isBox(ch: string | undefined): ch is string {
-	return ch === UNCHECKED || ch === CHECKED;
+	return ch !== undefined && ch.length === 1 && ch in PAIRS;
 }
 
 export function toggled(ch: string): string {
-	return ch === UNCHECKED ? CHECKED : UNCHECKED;
+	return PAIRS[ch] ?? ch;
+}
+
+/** What a cell's ticked strike box strikes through: nothing, the cell's own text, or (no text beside it) the row. */
+export type Strike = 'none' | 'cell' | 'row';
+
+/** Decides the strike for one cell's text: text next to a ticked strike box → that cell; a ticked box alone → the row. */
+export function strikeOf(cellText: string): Strike {
+	if (!cellText.includes(STRIKE_DONE)) return 'none';
+	const rest = Array.from(cellText).filter((c) => !isBox(c)).join('').trim();
+	return rest === '' ? 'row' : 'cell';
 }
 
 /** A cell's content inside one line: [from, to) offsets in the line, pipes excluded. */
@@ -232,13 +252,21 @@ export function resolveBox(lines: Lines, ref: BoxRef): {line: number; ch: number
 	return ch === null ? null : {line, ch};
 }
 
+/** Quick-insert shortcuts: typed in a table cell, each becomes its box. */
+export const SHORTCUTS: ReadonlyArray<{text: string; box: string}> = [
+	{text: '[]', box: UNCHECKED},
+	{text: '[-]', box: STRIKE_OPEN},
+];
+
 /**
- * Quick insert: should the `[]` that ends at `head` (just typed) become ☐? Only when the brackets stand alone (not a
- * wikilink, image, escaped or reference link) and are not inside inline code. `cellFrom` is where the cell starts.
+ * Quick insert: should the `shortcut` (`[]` or `[-]`) that ends at `head` (just typed) become a box? Only when the
+ * brackets stand alone (not a wikilink, image, escaped or reference link) and are not inside inline code. `cellFrom`
+ * is where the cell starts.
  */
-export function bracketsStandAlone(text: string, head: number, cellFrom: number): boolean {
-	if (head - 2 < cellFrom || text.slice(head - 2, head) !== '[]') return false;
-	const before = text[head - 3];
-	if (head - 3 >= cellFrom && (before === '[' || before === '!' || before === '\\' || before === ']')) return false;
-	return !insideInlineCode(text, cellFrom, head - 2);
+export function bracketsStandAlone(text: string, head: number, cellFrom: number, shortcut = '[]'): boolean {
+	const start = head - shortcut.length;
+	if (start < cellFrom || text.slice(start, head) !== shortcut) return false;
+	const before = text[start - 1];
+	if (start - 1 >= cellFrom && (before === '[' || before === '!' || before === '\\' || before === ']')) return false;
+	return !insideInlineCode(text, cellFrom, start);
 }
