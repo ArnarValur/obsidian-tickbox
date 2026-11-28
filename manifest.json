@@ -1,7 +1,7 @@
 {
 	"id": "tickbox",
 	"name": "Tickbox",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "1.5.7",
 	"description": "Tick checkboxes in Markdown tables with a click or tap. The boxes are plain characters, so notes read fine without the plugin.",
 	"author": "Merkurial-Studio - Arnar Valur",
